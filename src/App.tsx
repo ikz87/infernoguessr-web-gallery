@@ -21,11 +21,19 @@ interface Submission {
   storage_path: string;
 }
 
+interface SubmissionStats {
+  submission_id: number;
+  times_picked: number;
+  avg_time_seconds: number | null;
+  avg_score: number | null;
+}
+
 function App() {
   const [levels, setLevels] = useState<Level[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [selectedLevelId, setSelectedLevelId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [submissionStats, setSubmissionStats] = useState<Record<number, SubmissionStats>>({});
 
   useEffect(() => {
     fetchData();
@@ -56,6 +64,38 @@ function App() {
   const filteredSubmissions = selectedLevelId
     ? submissions.filter(s => s.level_id === selectedLevelId)
     : [];
+
+  useEffect(() => {
+    if (!selectedLevelId) {
+      setSubmissionStats({});
+      return;
+    }
+    const ids = filteredSubmissions.map(s => s.id);
+    if (ids.length === 0) return;
+
+    async function fetchStats() {
+      try {
+        const { data, error } = await supabase.rpc('get_submission_stats', {
+          p_submission_ids: ids,
+        });
+        if (error) {
+          console.error('Error fetching submission stats:', error);
+          return;
+        }
+        const statsMap: Record<number, SubmissionStats> = {};
+        (data as SubmissionStats[]).forEach((s) => {
+          statsMap[s.submission_id] = s;
+        });
+        setSubmissionStats(statsMap);
+      } catch (err) {
+        console.error('Error fetching submission stats:', err);
+      } finally {
+        // Stats fetched
+      }
+    }
+    fetchStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedLevelId]);
 
   const selectedLevel = levels.find(l => l.id === selectedLevelId);
 
@@ -192,6 +232,30 @@ function App() {
                         <span>{sub.thumbs_up}</span>
                       </div>
                     </div>
+                    {submissionStats[sub.id] && (
+                      <div className="submission-stats-bar">
+                        <div className="stat-group">
+                          <span className="stat-label">Picked</span>
+                          <span className="stat-value">{submissionStats[sub.id].times_picked}</span>
+                        </div>
+                        <div className="stat-group">
+                          <span className="stat-label">Avg Time</span>
+                          <span className="stat-value">
+                            {submissionStats[sub.id].avg_time_seconds != null
+                              ? `${submissionStats[sub.id].avg_time_seconds}s`
+                              : '—'}
+                          </span>
+                        </div>
+                        <div className="stat-group">
+                          <span className="stat-label">Avg Score</span>
+                          <span className="stat-value">
+                            {submissionStats[sub.id].avg_score != null
+                              ? submissionStats[sub.id].avg_score
+                              : '—'}
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </motion.div>
                 ))}
               </div>
