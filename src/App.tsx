@@ -40,20 +40,43 @@ function App() {
   }, []);
 
   async function fetchData() {
+    const PAGE_SIZE = 1000;
     try {
       const { data: levelsData } = await supabase
         .from('levels')
         .select('*')
         .order('level_number');
 
-      const { data: subsData } = await supabase
-        .from('image_submissions')
-        .select('*')
-        .eq('status', 'approved')
-        .order('created_at', { ascending: false });
-
       if (levelsData) setLevels(levelsData);
-      if (subsData) setSubmissions(subsData);
+
+      // Paginate through all approved submissions
+      const allSubs: Submission[] = [];
+      let from = 0;
+      while (true) {
+        const { data: page, error } = await supabase
+          .from('image_submissions')
+          .select('*')
+          .eq('status', 'approved')
+          .order('created_at', { ascending: false })
+          .range(from, from + PAGE_SIZE - 1);
+
+        if (error) {
+          console.error('Error fetching submissions page:', error);
+          break;
+        }
+
+        if (page && page.length > 0) {
+          allSubs.push(...page);
+        }
+
+        if (!page || page.length < PAGE_SIZE) {
+          break; // last page
+        }
+
+        from += PAGE_SIZE;
+      }
+
+      setSubmissions(allSubs);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
