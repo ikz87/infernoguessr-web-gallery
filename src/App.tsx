@@ -4,6 +4,8 @@ import { Image as ImageIcon, ChevronLeft, Clock, ThumbsUp } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import './App.css';
 
+const IMAGE_BASE_URL = import.meta.env.VITE_IMAGE_BASE_URL || 'https://gallery.ultrakidle.online';
+
 interface Level {
   id: string;
   level_number: string;
@@ -131,7 +133,7 @@ function App() {
     const previewSub = submissions.find(s => s.level_id === l.id);
     const previewUrl = previewSub
       ? (previewSub.storage_path
-        ? supabase.storage.from('level-images').getPublicUrl(previewSub.storage_path).data.publicUrl
+        ? `${IMAGE_BASE_URL}/${previewSub.storage_path}`
         : previewSub.image_url)
       : undefined;
 
@@ -236,7 +238,7 @@ function App() {
                   >
                     <div className="image-wrapper">
                       <img
-                        src={sub.storage_path ? supabase.storage.from('level-images').getPublicUrl(sub.storage_path).data.publicUrl : sub.image_url}
+                        src={sub.storage_path ? `${IMAGE_BASE_URL}/${sub.storage_path}` : sub.image_url}
                         alt={`Submission by ${sub.discord_name}`}
                       />
                     </div>
