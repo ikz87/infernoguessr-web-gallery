@@ -21,6 +21,11 @@ interface Submission {
   thumbs_up: number;
   created_at: string;
   storage_path: string;
+  discord_user_id: string;
+  profiles?: {
+    discord_name: string;
+    discord_avatar_url: string;
+  };
 }
 
 interface SubmissionStats {
@@ -76,6 +81,26 @@ function App() {
         }
 
         from += PAGE_SIZE;
+      }
+
+      // Fetch profiles manually as there is no foreign key relationship for automatic join
+      const userIds = [...new Set(allSubs.map(s => s.discord_user_id).filter(Boolean))];
+      if (userIds.length > 0) {
+        const { data: profiles, error: profileError } = await supabase
+          .from('submitter_profiles')
+          .select('discord_user_id, discord_name, discord_avatar_url')
+          .in('discord_user_id', userIds);
+
+        if (!profileError && profiles) {
+          const profileMap = Object.fromEntries(
+            profiles.map(p => [p.discord_user_id, p])
+          );
+          allSubs.forEach(sub => {
+            if (sub.discord_user_id) {
+              sub.profiles = profileMap[sub.discord_user_id];
+            }
+          });
+        }
       }
 
       setSubmissions(allSubs);
@@ -239,14 +264,18 @@ function App() {
                     <div className="image-wrapper">
                       <img
                         src={sub.storage_path ? `${IMAGE_BASE_URL}/${sub.storage_path}` : sub.image_url}
-                        alt={`Submission by ${sub.discord_name}`}
+                        alt={`Submission by ${sub.profiles?.discord_name || sub.discord_name}`}
                       />
                     </div>
                     <div className="submission-content">
                       <div className="author-info">
-                        <img src={sub.discord_avatar_url} className="author-avatar" alt={sub.discord_name} />
+                        <img
+                          src={sub.profiles?.discord_avatar_url || sub.discord_avatar_url}
+                          className="author-avatar"
+                          alt={sub.profiles?.discord_name || sub.discord_name}
+                        />
                         <div className="author-details">
-                          <p className="author-name">{sub.discord_name}</p>
+                          <p className="author-name">{sub.profiles?.discord_name || sub.discord_name}</p>
                           <p className="submission-date">
                             <Clock size={10} /> {new Date(sub.created_at).toLocaleDateString()}
                           </p>
