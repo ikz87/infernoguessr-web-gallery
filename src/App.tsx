@@ -21,7 +21,7 @@ interface Submission {
   thumbs_up: number;
   created_at: string;
   storage_path: string;
-  discord_user_id: string;
+  submitter_id: string;
   profiles?: {
     discord_name: string;
     discord_avatar_url: string;
@@ -62,7 +62,7 @@ function App() {
       while (true) {
         const { data: page, error } = await supabase
           .from('image_submissions')
-          .select('*')
+          .select('*, profiles:submitter_profiles(discord_name, discord_avatar_url)')
           .eq('status', 'approved')
           .order('created_at', { ascending: false })
           .range(from, from + PAGE_SIZE - 1);
@@ -83,25 +83,6 @@ function App() {
         from += PAGE_SIZE;
       }
 
-      // Fetch profiles manually as there is no foreign key relationship for automatic join
-      const userIds = [...new Set(allSubs.map(s => s.discord_user_id).filter(Boolean))];
-      if (userIds.length > 0) {
-        const { data: profiles, error: profileError } = await supabase
-          .from('submitter_profiles')
-          .select('discord_user_id, discord_name, discord_avatar_url')
-          .in('discord_user_id', userIds);
-
-        if (!profileError && profiles) {
-          const profileMap = Object.fromEntries(
-            profiles.map(p => [p.discord_user_id, p])
-          );
-          allSubs.forEach(sub => {
-            if (sub.discord_user_id) {
-              sub.profiles = profileMap[sub.discord_user_id];
-            }
-          });
-        }
-      }
 
       setSubmissions(allSubs);
     } catch (error) {
